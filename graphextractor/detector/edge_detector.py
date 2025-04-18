@@ -76,7 +76,12 @@ class EdgeDetector:
                 min_end_dist = float('inf')
                 
                 for node in nodes:
-                    node_x, node_y = node["position"]
+                    # DEBUG: print node position type and value
+                    print(f"DEBUG: node['position'] type={type(node['position'])}, value={node['position']}")
+                    node_pos = node["position"]
+                    if not (isinstance(node_pos, (list, tuple)) and len(node_pos) == 2):
+                        node_pos = (0, 0)
+                    node_x, node_y = node_pos
                     
                     # Calculate distance to line start
                     start_dist = np.sqrt((node_x - x1)**2 + (node_y - y1)**2)

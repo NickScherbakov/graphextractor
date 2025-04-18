@@ -1,1 +1,35 @@
+# Environments
 .env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Project specific
+cache/
+temp_uploads/
+output/
+
+# IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test results and temporary files
+test_results/
+test.db

@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+
+package "graphextractor" {
+  [cli.py]
+  package detector {
+    [node_detector.py]
+    [edge_detector.py]
+    [graph_detector.py]
+  }
+  package graph_builder {
+    [networkx_builder.py]
+  }
+  package preprocessing {
+    [image_enhancer.py]
+    [noise_reduction.py]
+    [quality_analyzer.py]
+  }
+  package text_recognition {
+    [ocr_processor.py]
+    [text_mapper.py]
+  }
+  package caching {
+    [cache_manager.py]
+    [image_hash_provider.py]
+  }
+  package api {
+    [app.py]
+  }
+}
+
+folder "test_images" as test_images
+folder "test_results" as test_results
+folder "examples" as examples
+folder "cache" as cache_folder
+folder "temp_uploads" as temp_uploads
+folder "output" as output
+
+[quick_test.py]
+[batch_test.py]
+[test_api.py]
+[visualize_results.py]
+[run_all_tests.py]
+[fix_dependencies.py]
+[setup.py]
+
+[cli.py] --> detector
+[cli.py] --> preprocessing
+[cli.py] --> text_recognition
+[cli.py] --> graph_builder
+[cli.py] --> caching
+[cli.py] --> api
+
+[app.py] ..> detector
+[app.py] ..> preprocessing
+[app.py] ..> text_recognition
+[app.py] ..> graph_builder
+[app.py] ..> caching
+
+[examples] ..> [cli.py]
+[batch_test.py] ..> test_images
+[quick_test.py] ..> test_images
+[run_all_tests.py] ..> test_images
+[run_all_tests.py] --> test_results
+[visualize_results.py] ..> test_results
+
+test_images -[hidden]-> [quick_test.py]
+test_results -[hidden]-> [visualize_results.py]
+cache_folder -[hidden]-> [caching]
+temp_uploads -[hidden]-> [api]
+output -[hidden]-> [cli.py]
+
+@enduml

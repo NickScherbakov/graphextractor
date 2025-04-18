@@ -2,6 +2,11 @@ import cv2
 import numpy as np
 from typing import Dict, List, Tuple, Any
 
+# Импортируем новые модули
+from ..preprocessing import ImageEnhancer, QualityAnalyzer
+from ..text_recognition import OCRProcessor, TextMapper
+from ..caching import CacheManager, ImageHashProvider
+
 class GraphDetector:
     """Main class for detecting graph structures in images."""
     
@@ -14,6 +19,31 @@ class GraphDetector:
         """
         self.config = config or {}
         
+        # Initialize preprocessing components
+        self.enhancer = ImageEnhancer(self.config.get("enhancer", {}))
+        self.quality_analyzer = QualityAnalyzer()
+        
+        # Initialize text recognition if enabled
+        self.ocr_enabled = self.config.get("ocr_enabled", True)
+        if self.ocr_enabled:
+            self.ocr_processor = OCRProcessor(
+                languages=self.config.get("ocr_languages", ["en"]),
+                gpu=self.config.get("use_gpu", False)
+            )
+            self.text_mapper = TextMapper(
+                proximity_threshold=self.config.get("text_proximity_threshold", 50.0)
+            )
+        
+        # Initialize caching if enabled
+        self.caching_enabled = self.config.get("caching_enabled", True)
+        if self.caching_enabled:
+            self.cache_manager = CacheManager(
+                cache_dir=self.config.get("cache_dir", "cache"),
+                redis_url=self.config.get("redis_url", None),
+                ttl=self.config.get("cache_ttl", 3600)
+            )
+            self.hash_provider = ImageHashProvider()
+        
     def detect(self, image_path: str) -> Dict[str, Any]:
         """
         Detect graph structures in the given image.
@@ -24,26 +54,81 @@ class GraphDetector:
         Returns:
             Dictionary containing detected graph elements
         """
-        # Load the image
-        image = cv2.imread(image_path)
-        if image is None:
-            raise ValueError(f"Could not load image from {image_path}")
+        # Check cache first if enabled
+        if self.caching_enabled:
+            # Load image for hash calculation
+            image = cv2.imread(image_path)
+            if image is None:
+                raise ValueError(f"Could not load image from {image_path}")
+            
+            # Generate hash for the image
+            image_hash = self.hash_provider.compute_hash(image)
+            
+            # Look up in cache
+            cached_result = self.cache_manager.get(image_hash)
+            if cached_result:
+                print(f"Using cached result for image: {image_path}")
+                return cached_result
+        else:
+            # Load the image if not already loaded for caching
+            image = cv2.imread(image_path)
+            if image is None:
+                raise ValueError(f"Could not load image from {image_path}")
+            
+        # Analyze image quality
+        quality_info = self.quality_analyzer.analyze(image)
+        print(f"Image quality: {quality_info['quality_level']} (score: {quality_info['quality_score']})")
         
-        # Preprocess the image
-        preprocessed = self._preprocess(image)
+        # Apply appropriate preprocessing based on quality
+        if quality_info['quality_score'] < 2:  # Low or very low quality
+            print("Applying adaptive enhancement for low quality image")
+            preprocessed = self.enhancer.apply_adaptive_enhancement(image)
+        else:
+            # Standard preprocessing for higher quality images
+            preprocessed = self._preprocess(image)
+            
+        # Extract text if OCR is enabled
+        text_regions = []
+        if self.ocr_enabled:
+            print("Extracting text with OCR...")
+            text_regions = self.ocr_processor.extract_text(image)
+            text_regions = self.ocr_processor.filter_text_by_size(
+                text_regions, 
+                min_confidence=self.config.get("min_text_confidence", 0.3)
+            )
+            print(f"Found {len(text_regions)} text regions")
         
         # Detect nodes
         nodes = self._detect_nodes(preprocessed)
         
+        # Map text to nodes if available
+        if self.ocr_enabled and text_regions:
+            nodes = self.text_mapper.map_text_to_nodes(nodes, text_regions)
+        
         # Detect edges
         edges = self._detect_edges(preprocessed, nodes)
         
-        return {
+        # Map text to edges if available
+        if self.ocr_enabled and text_regions:
+            edges = self.text_mapper.map_text_to_edges(edges, text_regions, nodes)
+        
+        # Prepare result
+        result = {
             "nodes": nodes,
             "edges": edges,
             "image_path": image_path,
-            "image_shape": image.shape
+            "image_shape": image.shape,
+            "quality_info": quality_info
         }
+        
+        if self.ocr_enabled:
+            result["text_regions"] = text_regions
+        
+        # Cache result if enabled
+        if self.caching_enabled:
+            self.cache_manager.set(image_hash, result)
+            
+        return result
     
     def _preprocess(self, image: np.ndarray) -> np.ndarray:
         """Preprocess the image for better detection."""
@@ -78,7 +163,8 @@ class GraphDetector:
             if M["m00"] != 0:
                 cX = int(M["m10"] / M["m00"])
                 cY = int(M["m01"] / M["m00"])
-                
+                # DEBUG: print detected node position
+                print(f"DEBUG: _detect_nodes node position = ({cX}, {cY})")
                 # Create node representation
                 node = {
                     "id": i,
@@ -114,6 +200,8 @@ class GraphDetector:
                 # Calculate distance between nodes
                 pos1 = node1["position"]
                 pos2 = node2["position"]
+                print(f"DEBUG: _detect_edges pos1 type={type(pos1)}, value={pos1}; pos2 type={type(pos2)}, value={pos2}")
+                # ...existing code...
                 distance = np.sqrt((pos1[0] - pos2[0])**2 + 
                                   (pos1[1] - pos2[1])**2)
                 

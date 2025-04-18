@@ -14,6 +14,13 @@ setup(
         "fastapi>=0.68.0",
         "uvicorn>=0.15.0",
         "pillow>=8.2.0",
+        # Новые зависимости
+        "easyocr>=1.6.0",  # для OCR
+        "redis>=4.3.0",     # для кэширования
+        "torchvision>=0.10.0",  # для моделей нейронных сетей
+        "scikit-learn>=1.0.0",  # для ML алгоритмов
+        "albumentations>=1.1.0",  # для аугментаций и предобработки
+        "imagehash>=4.2.0",  # для хеширования изображений
     ],
     author="GraphExtractor Team",
     description="A service for detecting and extracting graph structures from images",
