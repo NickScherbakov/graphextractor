@@ -5,6 +5,12 @@ models:
   - name: Autodetect
     provider: ollama
     model: AUTODETECT
+  - name: Autodetect
+    provider: free-trial
+    model: AUTODETECT
+  - name: deepseek v3
+    provider: llama.cpp
+    model: deepseek/deepseek_v3
 context:
   - provider: code
   - provider: docs
